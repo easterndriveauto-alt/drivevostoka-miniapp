@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DriveVostoka — Авто из Кореи</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root {
+  --bg:       var(--tg-theme-bg-color, #ffffff);
+  --text:     var(--tg-theme-text-color, #1a1a1a);
+  --hint:     var(--tg-theme-hint-color, #888);
+  --link:     var(--tg-theme-link-color, #2481cc);
+  --btn:      var(--tg-theme-button-color, #2481cc);
+  --btn-text: var(--tg-theme-button-text-color, #fff);
+  --sec-bg:   var(--tg-theme-secondary-bg-color, #f4f4f5);
+  --r:        12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.screen{display:none;min-height:100vh;padding-bottom:90px}
+.screen.active{display:block}
+.hdr{background:var(--btn);color:var(--btn-text);
+  padding:14px 16px;display:flex;align-items:center;gap:12px;
+  position:sticky;top:0;z-index:100}
+.hdr-icon{font-size:26px;line-height:1}
+.hdr-title{font-size:17px;font-weight:700;line-height:1.2}
+.hdr-sub{font-size:12px;opacity:.85;margin-top:2px}
+.sec{padding:14px 16px 0}
+.sec-lbl{font-size:12px;font-weight:700;color:var(--hint);
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+.pill{padding:8px 15px;border-radius:20px;border:1.5px solid var(--sec-bg);
+  background:var(--sec-bg);color:var(--text);font-size:14px;font-weight:500;
+  cursor:pointer;white-space:nowrap;transition:all .15s;user-select:none}
+.pill.on{background:var(--btn);color:var(--btn-text);border-color:var(--btn)}
+.badge{display:inline-block;padding:1px 6px;border-radius:5px;font-size:10px;
+  font-weight:700;background:#e6f4ea;color:#1e7e34;margin-left:4px;vertical-align:middle}
+.badge.top{background:#fff3cd;color:#856404}
+.budget-val{font-size:30px;font-weight:800;color:var(--btn);
+  text-align:center;padding:10px 0 2px}
+.budget-hint{font-size:12px;color:var(--hint);text-align:center;margin-bottom:10px}
+input[type=range]{width:100%;accent-color:var(--btn);height:4px;cursor:pointer}
+.sticky-btn{position:fixed;bottom:0;left:0;right:0;
+  padding:12px 16px;background:var(--bg);
+  border-top:1px solid var(--sec-bg);z-index:200}
+.btn{width:100%;padding:15px;background:var(--btn);color:var(--btn-text);
+  border:none;border-radius:var(--r);font-size:16px;font-weight:700;cursor:pointer}
+.btn:active{opacity:.85}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:var(--sec-bg);color:var(--text);font-weight:600}
+.div{height:8px;background:var(--sec-bg);margin:14px 0}
+.cards{padding:0 0 8px}
+.card{margin:0 12px 16px;background:var(--sec-bg);border-radius:var(--r);overflow:hidden}
+.card-img{width:100%;height:195px;object-fit:cover;display:block;background:#ccc}
+.card-no-img{width:100%;height:195px;
+  background:linear-gradient(135deg,#e2e2e2,#cacaca);
+  display:flex;align-items:center;justify-content:center;font-size:52px}
+.card-body{padding:14px}
+.card-title{font-size:17px;font-weight:700;margin-bottom:4px}
+.card-meta{font-size:13px;color:var(--hint);margin-bottom:10px;
+  display:flex;gap:12px;flex-wrap:wrap}
+.price-box{background:var(--bg);border-radius:8px;padding:12px;margin-bottom:8px}
+.price-lbl{font-size:11px;color:var(--hint);margin-bottom:3px}
+.price-val{font-size:23px;font-weight:800;color:var(--btn)}
+.price-sub{font-size:11px;color:var(--hint);margin-top:3px}
+.breakdown{display:none;margin-top:6px}
+.breakdown.open{display:block}
+.br-row{display:flex;justify-content:space-between;font-size:13px;
+  padding:4px 0;border-bottom:1px solid var(--sec-bg)}
+.br-row:last-child{border:none;font-weight:700;font-size:14px}
+.toggle-br{font-size:12px;color:var(--link);text-align:center;
+  padding:5px 0;cursor:pointer;user-select:none}
+.card-cta{width:100%;padding:12px;background:var(--btn);color:var(--btn-text);
+  border:none;border-radius:8px;font-size:15px;font-weight:700;
+  cursor:pointer;margin-top:10px}
+.card-cta:active{opacity:.85}
+.encar-link{display:block;text-align:center;font-size:12px;
+  color:var(--link);margin-top:8px;text-decoration:none}
+.res-meta{padding:10px 16px 0;font-size:14px;color:var(--hint)}
+.res-meta b{color:var(--text)}
+.rate-pill{display:inline-flex;align-items:center;gap:4px;
+  padding:4px 10px;background:var(--sec-bg);border-radius:20px;
+  font-size:12px;color:var(--hint);margin:8px 16px 0;display:block;
+  width:fit-content}
+.lead-car{margin:14px 16px;padding:14px;
+  background:var(--sec-bg);border-radius:var(--r)}
+.lead-car-title{font-weight:700;font-size:16px;margin-bottom:4px}
+.lead-car-price{font-size:22px;font-weight:800;color:var(--btn);margin:6px 0 2px}
+.lead-car-sub{font-size:12px;color:var(--hint)}
+.form-grp{margin:0 16px 14px}
+.form-lbl{font-size:13px;font-weight:600;color:var(--hint);
+  margin-bottom:6px;display:block}
+.form-inp{width:100%;padding:13px 14px;background:var(--sec-bg);
+  border:1.5px solid transparent;border-radius:var(--r);
+  font-size:16px;color:var(--text);outline:none;transition:border-color .15s}
+.form-inp:focus{border-color:var(--btn)}
+.city-note{font-size:12px;color:var(--hint);margin:-8px 16px 14px;display:block}
+.center{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;padding:50px 20px;min-height:50vh}
+.spinner{width:38px;height:38px;border:3px solid var(--sec-bg);
+  border-top-color:var(--btn);border-radius:50%;
+  animation:spin .75s linear infinite;margin-bottom:14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-ico{font-size:52px;margin-bottom:14px}
+.empty-ttl{font-size:18px;font-weight:700;margin-bottom:6px}
+.empty-sub{font-size:14px;color:var(--hint);line-height:1.5}
+.back-btn{padding:12px 16px;display:flex;align-items:center;gap:6px;
+  font-size:15px;color:var(--link);cursor:pointer;background:none;border:none}
+</style>
+</head>
+<body>
+
+<!-- ЭКРАН 1: ПОИСК -->
+<div id="s-search" class="screen active">
+  <div class="hdr">
+    <div class="hdr-icon">🚗</div>
+    <div>
+      <div class="hdr-title">DriveVostoka</div>
+      <div class="hdr-sub">Авто из Кореи · под ключ · Владивосток</div>
+    </div>
+  </div>
+
+  <div class="sec" style="padding-top:16px">
+    <div class="sec-lbl">Ваш бюджет (до Владивостока)</div>
+    <div class="budget-val" id="bv">2 500 000 ₽</div>
+    <div class="budget-hint" id="bh">Kia Sportage / Hyundai Tucson 2022</div>
+    <input type="range" id="br" min="1000000" max="5000000" step="100000" value="2500000">
+  </div>
+
+  <div class="div"></div>
+
+  <div class="sec">
+    <div class="sec-lbl">Марка</div>
+    <div class="pills" id="pg-maker">
+      <button class="pill on" data-v="">Все марки</button>
+      <button class="pill"    data-v="Kia">Kia</button>
+      <button class="pill"    data-v="Hyundai">Hyundai</button>
+      <button class="pill"    data-v="Genesis">Genesis</button>
+      <button class="pill"    data-v="Toyota">Toyota</button>
+      <button class="pill"    data-v="BMW">BMW</button>
+    </div>
+  </div>
+
+  <div class="div"></div>
+
+  <div class="sec">
+    <div class="sec-lbl">Год выпуска от</div>
+    <div class="pills" id="pg-year">
+      <button class="pill on" data-v="">Любой</button>
+      <button class="pill"    data-v="2020">2020</button>
+      <button class="pill"    data-v="2021">2021</button>
+      <button class="pill"    data-v="2022">2022</button>
+      <button class="pill"    data-v="2023">2023</button>
+    </div>
+  </div>
+
+  <div class="div"></div>
+
+  <div class="sec">
+    <div class="sec-lbl">Пробег до</div>
+    <div class="pills" id="pg-mile">
+      <button class="pill on" data-v="">Любой</button>
+      <button class="pill"    data-v="50000">50 000 км</button>
+      <button class="pill"    data-v="80000">80 000 км</button>
+      <button class="pill"    data-v="100000">100 000 км</button>
+    </div>
+  </div>
+
+  <div class="div"></div>
+
+  <div class="sec">
+    <div class="sec-lbl">Объём двигателя</div>
+    <div class="pills" id="pg-eng">
+      <button class="pill on" data-v="">Любой</button>
+      <button class="pill"    data-v="1600">до 1.6л <span class="badge">Выгодно</span></button>
+      <button class="pill"    data-v="2000">до 2.0л <span class="badge">Выгодно</span></button>
+      <button class="pill"    data-v="ev">Электро ⚡ <span class="badge top">Топ</span></button>
+    </div>
+  </div>
+
+  <div style="height:16px"></div>
+
+  <div class="sticky-btn">
+    <button class="btn" id="search-btn" onclick="doSearch()">🔍 Найти автомобили</button>
+  </div>
+</div>
+
+
+<!-- ЭКРАН 2: РЕЗУЛЬТАТЫ -->
+<div id="s-results" class="screen">
+  <div class="hdr">
+    <div class="hdr-icon">🇰🇷</div>
+    <div>
+      <div class="hdr-title">Варианты под ваш бюджет</div>
+      <div class="hdr-sub" id="res-sub">Владивосток · под ключ</div>
+    </div>
+  </div>
+  <div id="rate-pill" class="rate-pill"></div>
+  <div id="res-box"></div>
+  <div class="sticky-btn">
+    <button class="btn ghost" onclick="go('search')">← Изменить параметры</button>
+  </div>
+</div>
+
+
+<!-- ЭКРАН 3: ЗАЯВКА -->
+<div id="s-lead" class="screen">
+  <div class="hdr">
+    <div class="hdr-icon">✅</div>
+    <div>
+      <div class="hdr-title">Оставить заявку</div>
+      <div class="hdr-sub">Мен
