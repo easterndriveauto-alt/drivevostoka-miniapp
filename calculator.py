@@ -138,18 +138,16 @@ class ImportCost:
 
 
 def _get_util_coefficient(displacement_cc: int, age_years: float) -> float:
-    for max_cc, c_under3, c_3_7, c_over7 in UTIL_RATES:
-        if displacement_cc <= max_cc:
-            if age_years < 3:
-                return c_under3
-            elif age_years <= 7:
-                return c_3_7
-            else:
-                return c_over7
-    return UTIL_RATES[-1][3]
-
-
-def _get_duty_rate(displacement_cc: int, age_years: float):
+    def as_dict(self) -> dict:
+        car_with_delivery = round(self.car_price_rub + self.shipping_vvo + self.customs_broker)
+        total_duty = round(self.customs_duty + self.excise + self.vat)
+        return {
+            "🚗 Цена авто в Корее (с доставкой и оформлением)": car_with_delivery,
+            "🛃 Пошлина":                                        total_duty,
+            "📋 Таможенный сбор":                                round(self.customs_clearance),
+            "♻️ Утилизационный сбор":                           round(self.util_sbor),
+            "✅ Итого под ключ в порту г.Владивосток":                                 round(self.total),
+        }
     if age_years < 3:
         table = DUTY_UNDER3
     elif age_years <= 5:
