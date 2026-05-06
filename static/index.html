@@ -211,4 +211,282 @@ input[type=range]{width:100%;accent-color:var(--btn);height:4px;cursor:pointer}
     <div class="hdr-icon">✅</div>
     <div>
       <div class="hdr-title">Оставить заявку</div>
-      <div class="hdr-sub">Мен
+      <div class="hdr-sub">Менеджер перезвонит за 15 минут</div>
+    </div>
+  </div>
+
+  <button class="back-btn" onclick="go('results')">← К результатам</button>
+  <div class="lead-car" id="lead-car"></div>
+
+  <div class="form-grp">
+    <label class="form-lbl">Ваше имя</label>
+    <input class="form-inp" type="text" id="f-name" placeholder="Как к вам обращаться?" autocomplete="name">
+  </div>
+
+  <div class="form-grp">
+    <label class="form-lbl">Номер телефона</label>
+    <input class="form-inp" type="tel" id="f-phone" placeholder="+7 (___) ___-__-__" autocomplete="tel">
+  </div>
+
+  <div class="form-grp">
+    <label class="form-lbl">Ваш город (для расчёта доставки)</label>
+    <div class="pills" id="pg-city">
+      <button class="pill on" data-v="владивосток">Владивосток</button>
+      <button class="pill"    data-v="тюмень">Тюмень</button>
+      <button class="pill"    data-v="новосибирск">Новосибирск</button>
+      <button class="pill"    data-v="екатеринбург">Екатеринбург</button>
+      <button class="pill"    data-v="другой">Другой</button>
+    </div>
+  </div>
+  <span class="city-note" id="city-note"></span>
+
+  <div id="lead-ok" class="center" style="display:none">
+    <div style="font-size:68px;margin-bottom:16px">🎉</div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:8px">Заявка принята!</div>
+    <div style="font-size:15px;color:var(--hint);line-height:1.5">
+      Менеджер свяжется с вами<br>в течение 15 минут.
+    </div>
+  </div>
+
+  <div class="sticky-btn" id="lead-cta">
+    <button class="btn" onclick="submitLead()">📞 Отправить заявку</button>
+  </div>
+</div>
+
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); tg.enableClosingConfirmation(); }
+
+const S = { budget:2500000, maker:'', year:'', mile:'', eng:'', city:'владивосток',
+            electric:false, results:[], car:null };
+
+const fmt  = n => Number(n).toLocaleString('ru-RU') + ' ₽';
+const fmtN = n => Number(n).toLocaleString('ru-RU');
+
+function go(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('s-' + name).classList.add('active');
+  window.scrollTo(0,0);
+  if (tg?.BackButton) {
+    name === 'search' ? tg.BackButton.hide() : tg.BackButton.show();
+  }
+}
+if (tg?.BackButton) {
+  tg.BackButton.onClick(() => {
+    const a = document.querySelector('.screen.active')?.id;
+    if (a === 's-results') go('search');
+    else if (a === 's-lead') go('results');
+  });
+}
+
+const HINTS = {
+  1000000:'Hyundai Creta, Kia Stonic',
+  1500000:'Kia Seltos 2021, Hyundai Tucson 2019',
+  2000000:'Kia Sportage 2021, Hyundai Tucson 2021',
+  2500000:'Kia Sportage 2022, Hyundai Tucson 2022',
+  3000000:'Genesis GV70 2021, Kia Sorento 2021',
+  3500000:'Genesis GV70 2022, Hyundai Palisade',
+  4000000:'Genesis GV80, BMW X5',
+  5000000:'BMW X6, Genesis G90',
+};
+function updBudget(v) {
+  S.budget = +v;
+  document.getElementById('bv').textContent = fmt(S.budget);
+  const keys = Object.keys(HINTS).map(Number).sort((a,b)=>a-b);
+  let cl = keys[0];
+  keys.forEach(k => { if(Math.abs(k-S.budget) < Math.abs(cl-S.budget)) cl=k; });
+  document.getElementById('bh').textContent = HINTS[cl] || '≈ до 30% экономии vs рынок РФ';
+}
+document.getElementById('br').addEventListener('input', e => updBudget(e.target.value));
+
+function setupPills(id, key, cb) {
+  document.getElementById(id).addEventListener('click', e => {
+    const p = e.target.closest('.pill'); if (!p) return;
+    document.querySelectorAll('#'+id+' .pill').forEach(x => x.classList.remove('on'));
+    p.classList.add('on');
+    S[key] = p.dataset.v;
+    if (cb) cb(p.dataset.v);
+  });
+}
+setupPills('pg-maker', 'maker');
+setupPills('pg-year',  'year');
+setupPills('pg-mile',  'mile');
+setupPills('pg-eng',   'eng', v => { S.electric = v === 'ev'; });
+
+const DELIVERY = { 'владивосток':0,'тюмень':82000,'новосибирск':65000,'екатеринбург':85000 };
+setupPills('pg-city', 'city', v => {
+  const d = DELIVERY[v];
+  const note = document.getElementById('city-note');
+  if (d === 0)    note.textContent = 'Доставка уже включена в расчёт';
+  else if (d > 0) note.textContent = `+ ${fmtN(d)} ₽ доставка до вашего города`;
+  else            note.textContent = 'Уточним стоимость доставки при звонке';
+  if (S.car) renderLeadCar();
+});
+
+async function doSearch() {
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true; btn.textContent = '⏳ Ищем на Encar.com...';
+  go('results');
+  document.getElementById('res-box').innerHTML =
+    '<div class="center"><div class="spinner"></div><div style="color:var(--hint);font-size:15px">Ищем варианты…</div></div>';
+
+  const p = new URLSearchParams({ budget_rub: S.budget });
+  if (S.maker)    p.set('maker', S.maker);
+  if (S.year)     p.set('year_from', S.year);
+  if (S.mile)     p.set('max_mileage', S.mile);
+  if (S.eng && S.eng !== 'ev') p.set('displacement_max', S.eng);
+  if (S.electric) p.set('is_electric', 'true');
+
+  try {
+    const r = await fetch(`${location.origin}/api/search?${p}`);
+    const d = await r.json();
+    btn.disabled = false; btn.textContent = '🔍 Найти автомобили';
+    S.results = d.results || [];
+    document.getElementById('res-sub').textContent =
+      `Найдено ${d.found} вариант${plural(d.found)} · до Владивостока`;
+    document.getElementById('rate-pill').textContent =
+      `💱 Курс KRW: ${d.krw_rate} ₽ · обновлён только что`;
+    renderCards(S.results);
+  } catch {
+    btn.disabled = false; btn.textContent = '🔍 Найти автомобили';
+    document.getElementById('res-box').innerHTML =
+      '<div class="center"><div class="empty-ico">😕</div>'
+      +'<div class="empty-ttl">Ошибка соединения</div>'
+      +'<div class="empty-sub">Проверьте интернет и попробуйте снова</div></div>';
+  }
+}
+
+function plural(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return '';
+  if ([2,3,4].includes(n%10) && ![12,13,14].includes(n%100)) return 'а';
+  return 'ов';
+}
+
+function renderCards(cars) {
+  const box = document.getElementById('res-box');
+  if (!cars.length) {
+    box.innerHTML = '<div class="center"><div class="empty-ico">🔍</div>'
+      +'<div class="empty-ttl">Ничего не найдено</div>'
+      +'<div class="empty-sub">Попробуйте увеличить бюджет<br>или изменить фильтры</div></div>';
+    return;
+  }
+  box.innerHTML = '<div class="cards">'+cars.map(cardHTML).join('')+'</div>';
+}
+
+function cardHTML(car, i) {
+  const photo = car.photos?.[0]
+    ? `<img class="card-img" src="${car.photos[0]}" loading="lazy"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      +`<div class="card-no-img" style="display:none">🚗</div>`
+    : `<div class="card-no-img">🚗</div>`;
+
+  const b = car.breakdown;
+  const mo = String(car.month||1).padStart(2,'0');
+
+  return `<div class="card">
+    ${photo}
+    <div class="card-body">
+      <div class="card-title">${car.title} ${car.year}/${mo}</div>
+      <div class="card-meta">
+        <span>🛣 ${fmtN(car.mileage)} км</span>
+        <span>⚙️ ${(car.displacement_cc/1000).toFixed(1)}л ${car.fuel}</span>
+        ${car.color ? `<span>🎨 ${car.color}</span>` : ''}
+      </div>
+      <div class="price-box">
+        <div class="price-lbl">Итого под ключ в порту г.Владивосток</div>
+        <div class="price-val">${fmt(car.total_vladivostok_rub)}</div>
+      </div>
+      <div class="toggle-br" onclick="toggleBr(${i})">Подробный расчёт ▾</div>
+      <div class="breakdown" id="br-${i}">
+        <div class="br-row"><span>🚗 Цена авто (с доставкой и оформлением)</span><span>${fmt(b.car_with_delivery)}</span></div>
+        <div class="br-row"><span>🛃 Пошлина</span><span>${fmt(b.duty)}</span></div>
+        <div class="br-row"><span>📋 Таможенный сбор</span><span>${fmt(b.customs_fee)}</span></div>
+        <div class="br-row"><span>♻️ Утилизационный сбор</span><span>${fmt(b.util_sbor)}</span></div>
+        <div class="br-row"><span>✅ Итого под ключ в порту г.Владивосток</span><span>${fmt(car.total_vladivostok_rub)}</span></div>
+      </div>
+      <button class="card-cta" onclick="pickCar(${i})">✅ Хочу этот автомобиль</button>
+      <a class="encar-link" href="${car.encar_url}" target="_blank">Смотреть на Encar.com →</a>
+    </div>
+  </div>`;
+}
+
+function toggleBr(i) {
+  const el = document.getElementById('br-'+i);
+  el.classList.toggle('open');
+  el.previousElementSibling.textContent = el.classList.contains('open')
+    ? 'Свернуть ▴' : 'Подробный расчёт ▾';
+}
+
+function pickCar(i) {
+  S.car = S.results[i];
+  renderLeadCar();
+  const u = tg?.initDataUnsafe?.user;
+  if (u && !document.getElementById('f-name').value) {
+    document.getElementById('f-name').value = [u.first_name,u.last_name].filter(Boolean).join(' ');
+  }
+  go('lead');
+}
+
+function renderLeadCar() {
+  const car = S.car;
+  const d = DELIVERY[S.city] || 0;
+  const total = car.total_vladivostok_rub + d;
+  const mo = String(car.month||1).padStart(2,'0');
+  document.getElementById('lead-car').innerHTML = `
+    <div class="lead-car-title">🚗 ${car.title} ${car.year}/${mo}</div>
+    <div style="color:var(--hint);font-size:13px;margin:3px 0 6px">
+      ${fmtN(car.mileage)} км · ${(car.displacement_cc/1000).toFixed(1)}л ${car.fuel}
+    </div>
+    <div class="lead-car-price">${fmt(total)}</div>
+    <div class="lead-car-sub">${d>0
+      ? `Владивосток + ${fmtN(d)} ₽ доставка до вашего города`
+      : 'Итого под ключ в порту г.Владивосток'}
+    </div>`;
+}
+
+async function submitLead() {
+  const name  = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  if (!name)  { shake('f-name');  return; }
+  if (phone.length < 6) { shake('f-phone'); return; }
+
+  const cta = document.getElementById('lead-cta');
+  const btn = cta.querySelector('button');
+  btn.disabled = true; btn.textContent = '⏳ Отправляем...';
+
+  const car = S.car;
+  const d   = DELIVERY[S.city] || 0;
+  const mo  = String(car.month||1).padStart(2,'0');
+
+  try {
+    await fetch(`${location.origin}/api/lead`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name, phone,
+        car_title: `${car.title} ${car.year}/${mo}`,
+        budget_rub: car.total_vladivostok_rub + d,
+        city: S.city,
+        chat_id: tg?.initDataUnsafe?.user?.id || 0,
+      }),
+    });
+    tg?.HapticFeedback?.notificationOccurred('success');
+    document.getElementById('lead-ok').style.display  = 'flex';
+    cta.style.display = 'none';
+    setTimeout(() => tg?.close(), 3500);
+  } catch {
+    btn.disabled = false; btn.textContent = '📞 Отправить заявку';
+    tg?.HapticFeedback?.notificationOccurred('error');
+  }
+}
+
+function shake(id) {
+  const el = document.getElementById(id);
+  el.style.borderColor = '#e53935';
+  tg?.HapticFeedback?.notificationOccurred('error');
+  setTimeout(() => el.style.borderColor = 'transparent', 1200);
+}
+</script>
+</body>
+</html>
